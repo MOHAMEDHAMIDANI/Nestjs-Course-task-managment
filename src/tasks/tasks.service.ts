@@ -11,7 +11,7 @@ export class TasksService {
   constructor(
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
-  ) {}
+  ) { }
   async createTask(createTaskDto: createTaskDto): Promise<Task> {
     const { title, description } = createTaskDto;
     const task: Task = this.taskRepository.create({
@@ -43,17 +43,16 @@ export class TasksService {
     await this.taskRepository.save(task);
     return task;
   }
-  // getTaskWithFilters(filtersDto: getTaskFilterDto) {
-  //   const { status, search } = filtersDto;
-  //   let tasks = this.tasks;
-  //   if (status) {
-  //     tasks = tasks.filter((task) => task.status === status);
-  //   }
-  //   if (search) {
-  //     tasks = tasks.filter((task) =>
-  //       task.title.toLowerCase().includes(search.toLowerCase()),
-  //     );
-  //   }
-  //   return tasks;
-  // }
+  async getTasks(filtersDto: getTaskFilterDto): Promise<Task[]> {
+    const { status, search } = filtersDto;
+    const Query = this.taskRepository.createQueryBuilder('task')
+    if (status) {
+      Query.andWhere('task.status = :status', { status })
+    }
+    if (search) {
+      Query.andWhere('LOWER(task.title) LIKE LOWER(:search) OR LOWER(task.description) LIKE LOWER(:search)', { search:` %${ search }%` })
+  }
+  const tasks = await Query.getMany()
+    return tasks
+  }
 }
