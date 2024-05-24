@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { TaskStatus } from './task-status.enum';
 import { createTaskDto } from './Dto/create-task.dto';
 import { getTaskFilterDto } from './Dto/get-tasks-filter.dto';
@@ -7,11 +7,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Task } from './task.entity';
 import { Repository } from 'typeorm';
 import { User } from 'src/auth/user.entity';
+import { Logger } from '@nestjs/common';
 @Injectable()
 export class TasksService {
   constructor(
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
+    private logger = new Logger('Tasks Services'),
   ) { }
   async createTask(createTaskDto: createTaskDto , user : User): Promise<Task> {
     const { title, description } = createTaskDto;
@@ -45,7 +47,7 @@ export class TasksService {
     await this.taskRepository.save(task);
     return task;
   }
-  async getTasks(filtersDto: getTaskFilterDto , user : User): Promise<Task[]> {
+  async getTasks( filtersDto: getTaskFilterDto , user : User): Promise<Task[]> {
     const { status, search } = filtersDto;
     const Query = this.taskRepository.createQueryBuilder('task')
     Query.where({user : user})
@@ -55,7 +57,12 @@ export class TasksService {
     if (search) {
       Query.andWhere('(LOWER(task.title) LIKE LOWER(:search) OR LOWER(task.description) LIKE LOWER(:search))', { search:` %${ search }%` })
   }
-  const tasks = await Query.getMany()
+  try {
+    const tasks = await Query.getMany()
     return tasks
+  } catch (error) {
+    this.logger.error(`Failed to get tasks. Filters: ${JSON.stringify(filtersDto)}`, error.stack);
+    throw new InternalServerErrorException();
+  }
   }
 }
